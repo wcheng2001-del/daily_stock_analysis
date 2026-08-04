@@ -262,7 +262,7 @@ const fieldDescriptionMap: Record<string, string> = {
   ANSPIRE_LLM_ENABLED: '开启后，未配置更高优先级 LLM 渠道或 OpenAI 兼容密钥时，ANSPIRE_API_KEYS 会自动作为 Anspire 大模型密钥使用。',
   ANSPIRE_LLM_BASE_URL: 'Anspire OpenAI 兼容网关地址，默认 https://open-gateway.anspire.cn/v6，海外可用 https://open-gateway.anspire.ai/v6。',
   ANSPIRE_LLM_MODEL: '仅填写 ANSPIRE_API_KEYS 时自动使用的模型，默认 Doubao-Seed-2.0-lite。',
-  DEEPSEEK_API_KEY: 'DeepSeek 官方 API 密钥。填写后自动使用 deepseek-chat 模型。',
+  DEEPSEEK_API_KEY: 'DeepSeek 官方 API 密钥。填写后自动使用 deepseek-v4-flash 模型，并开启 thinking 模式。',
   GEMINI_API_KEY: '用于 Gemini 服务调用的密钥。',
   GEMINI_MODEL: '设置 Gemini 分析模型名称。',
   GEMINI_TEMPERATURE: '控制模型输出随机性，范围通常为 0.0 到 2.0。',

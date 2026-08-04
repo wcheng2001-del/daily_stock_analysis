@@ -1419,8 +1419,7 @@ class Config:
                 elif anthropic_api_keys:
                     litellm_model = f'anthropic/{_anthropic_model_name}'
                 elif deepseek_api_keys:
-                    litellm_model = 'deepseek/deepseek-chat'
-                    inferred_legacy_deepseek_model = True
+                    litellm_model = 'deepseek/deepseek-v4-flash'
                 elif openai_api_keys:
                     # For openai-compatible models, add prefix only if not already prefixed
                     if '/' not in _openai_model_name:

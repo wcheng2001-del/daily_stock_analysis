@@ -14,7 +14,13 @@ except ModuleNotFoundError:
     ensure_litellm_stub()
     from litellm.types.utils import Usage
 
-from src.agent.llm_adapter import LLMToolAdapter  # noqa: E402
+from src.agent.llm_adapter import LLMToolAdapter, get_thinking_extra_body  # noqa: E402
+
+
+def test_deepseek_v4_flash_enables_thinking_extra_body() -> None:
+    assert get_thinking_extra_body("deepseek-v4-flash") == {
+        "thinking": {"type": "enabled"},
+    }
 
 
 def test_convert_messages_preserves_reasoning_blocks_and_provider_specific_fields() -> None:
