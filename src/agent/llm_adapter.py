@@ -8,6 +8,7 @@ interface consumed by the AgentExecutor, via LiteLLM.
 
 import json
 import logging
+import os
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -102,6 +103,10 @@ _OPT_IN_THINKING_MODELS: Dict[str, dict] = {
     "deepseek-chat": {"thinking": {"type": "enabled"}},
     "deepseek-v4-flash": {"thinking": {"type": "enabled"}},
 }
+
+_TRUTHY_ENV_VALUES = {"1", "true", "yes", "y", "on", "enabled", "enable"}
+_FALSY_ENV_VALUES = {"0", "false", "no", "n", "off", "disabled", "disable", "none"}
+_REASONING_EFFORT_VALUES = {"low", "high", "max"}
 
 # Custom model pricing for models not in LiteLLM's built-in price list.
 # Official MiniMax pricing: https://platform.minimax.io/docs/guides/pricing-paygo
@@ -281,6 +286,21 @@ def _get_opt_in_payload(model: str, opt_in: Dict[str, dict]) -> Optional[dict]:
     return None
 
 
+def _parse_env_bool(name: str) -> Optional[bool]:
+    value = os.getenv(name)
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if not normalized:
+        return None
+    if normalized in _TRUTHY_ENV_VALUES:
+        return True
+    if normalized in _FALSY_ENV_VALUES:
+        return False
+    logger.warning("%s=%r is invalid; expected true/false, enabled/disabled, or 1/0", name, value)
+    return None
+
+
 def get_thinking_extra_body(model: str) -> Optional[dict]:
     """Return extra_body for thinking mode, or None.
 
@@ -294,7 +314,43 @@ def get_thinking_extra_body(model: str) -> Optional[dict]:
     """
     if _model_matches(model, _AUTO_THINKING_MODELS):
         return None
-    return _get_opt_in_payload(model, _OPT_IN_THINKING_MODELS)
+    payload = _get_opt_in_payload(model, _OPT_IN_THINKING_MODELS)
+    if payload is None:
+        return None
+    thinking_enabled = _parse_env_bool("DEEPSEEK_THINKING_ENABLED")
+    if thinking_enabled is False:
+        return {"thinking": {"type": "disabled"}}
+    return payload
+
+
+def get_deepseek_reasoning_effort(model: str) -> Optional[str]:
+    """Return DeepSeek reasoning_effort override from env, if valid."""
+    if not (
+        _model_matches(model, _AUTO_THINKING_MODELS)
+        or _get_opt_in_payload(model, _OPT_IN_THINKING_MODELS) is not None
+    ):
+        return None
+    raw = os.getenv("DEEPSEEK_REASONING_EFFORT") or os.getenv("REASONING_EFFORT")
+    if raw is None:
+        return None
+    normalized = raw.strip().lower()
+    if not normalized:
+        return None
+    if normalized in _REASONING_EFFORT_VALUES:
+        return normalized
+    logger.warning(
+        "DeepSeek reasoning effort %r is invalid; expected one of: low, high, max",
+        raw,
+    )
+    return None
+
+
+def apply_deepseek_reasoning_effort(call_kwargs: Dict[str, Any], model: str) -> None:
+    """Attach reasoning_effort to an outgoing DeepSeek request when configured."""
+    model_short = model.split("/")[-1] if "/" in model else model
+    effort = get_deepseek_reasoning_effort(model_short)
+    if effort:
+        call_kwargs["reasoning_effort"] = effort
 
 
 def resolve_fallback_litellm_wire_models(
@@ -704,6 +760,7 @@ class LLMToolAdapter:
 
         if extra:
             call_kwargs["extra_body"] = extra
+        apply_deepseek_reasoning_effort(call_kwargs, model)
 
         if tools:
             call_kwargs["tools"] = tools

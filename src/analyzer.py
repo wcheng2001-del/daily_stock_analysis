@@ -23,6 +23,7 @@ from json_repair import repair_json
 from litellm import Router
 
 from src.agent.llm_adapter import (
+    apply_deepseek_reasoning_effort,
     get_thinking_extra_body,
     resolve_fallback_litellm_wire_models,
     register_fallback_model_pricing,
@@ -3167,6 +3168,7 @@ class GeminiAnalyzer:
                     call_kwargs["timeout"] = requested_timeout
                 if extra:
                     call_kwargs["extra_body"] = extra
+                apply_deepseek_reasoning_effort(call_kwargs, model)
                 uses_router = (
                     (use_channel_router and self._router and model in router_model_names)
                     or (self._router and model == config.litellm_model and not use_channel_router)

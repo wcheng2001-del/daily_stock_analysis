@@ -14,13 +14,51 @@ except ModuleNotFoundError:
     ensure_litellm_stub()
     from litellm.types.utils import Usage
 
-from src.agent.llm_adapter import LLMToolAdapter, get_thinking_extra_body  # noqa: E402
+from src.agent.llm_adapter import (  # noqa: E402
+    LLMToolAdapter,
+    apply_deepseek_reasoning_effort,
+    get_thinking_extra_body,
+)
 
 
 def test_deepseek_v4_flash_enables_thinking_extra_body() -> None:
     assert get_thinking_extra_body("deepseek-v4-flash") == {
         "thinking": {"type": "enabled"},
     }
+
+
+def test_deepseek_thinking_env_can_disable_extra_body() -> None:
+    original = os.environ.get("DEEPSEEK_THINKING_ENABLED")
+    os.environ["DEEPSEEK_THINKING_ENABLED"] = "false"
+    try:
+        assert get_thinking_extra_body("deepseek-v4-flash") == {
+            "thinking": {"type": "disabled"},
+        }
+    finally:
+        if original is None:
+            os.environ.pop("DEEPSEEK_THINKING_ENABLED", None)
+        else:
+            os.environ["DEEPSEEK_THINKING_ENABLED"] = original
+
+
+def test_deepseek_reasoning_effort_env_adds_request_param() -> None:
+    original_deepseek = os.environ.get("DEEPSEEK_REASONING_EFFORT")
+    original_generic = os.environ.get("REASONING_EFFORT")
+    os.environ["DEEPSEEK_REASONING_EFFORT"] = "high"
+    os.environ.pop("REASONING_EFFORT", None)
+    try:
+        call_kwargs = {"model": "deepseek/deepseek-v4-flash"}
+        apply_deepseek_reasoning_effort(call_kwargs, "deepseek/deepseek-v4-flash")
+        assert call_kwargs["reasoning_effort"] == "high"
+    finally:
+        if original_deepseek is None:
+            os.environ.pop("DEEPSEEK_REASONING_EFFORT", None)
+        else:
+            os.environ["DEEPSEEK_REASONING_EFFORT"] = original_deepseek
+        if original_generic is None:
+            os.environ.pop("REASONING_EFFORT", None)
+        else:
+            os.environ["REASONING_EFFORT"] = original_generic
 
 
 def test_convert_messages_preserves_reasoning_blocks_and_provider_specific_fields() -> None:
