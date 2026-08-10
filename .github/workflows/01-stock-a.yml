@@ -1,0 +1,35 @@
+﻿name: Stock_A
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '运行模式'
+        required: true
+        default: 'stocks-only'
+        type: choice
+        options:
+          - full
+          - market-only
+          - stocks-only
+      force_run:
+        description: '强制运行（跳过交易日检查）'
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    # 北京时间周一到周五 22:10
+    - cron: '10 14 * * 1-5'
+
+concurrency:
+  group: stock-a-analysis
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    uses: ./.github/workflows/00-daily-analysis.yml
+    with:
+      stock_list: ${{ vars.stock_A_list || vars.STOCK_A_LIST }}
+      mode: ${{ inputs.mode || 'stocks-only' }}
+      force_run: ${{ inputs.force_run || false }}
+    secrets: inherit
