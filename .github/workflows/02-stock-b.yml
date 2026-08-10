@@ -19,7 +19,7 @@ on:
         type: boolean
   schedule:
     # 北京时间周一到周五 22:20
-    - cron: '20 14 * * 1-5'
+    #- cron: '20 14 * * 1-5'
 
 concurrency:
   group: stock-b-analysis
