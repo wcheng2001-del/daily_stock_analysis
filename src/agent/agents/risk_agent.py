@@ -22,6 +22,7 @@ from typing import Optional
 from src.agent.agents.base_agent import BaseAgent
 from src.agent.protocols import AgentContext, AgentOpinion
 from src.agent.runner import try_parse_json
+from src.market_context import detect_market
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,27 @@ class RiskAgent(BaseAgent):
     ]
 
     def system_prompt(self, ctx: AgentContext) -> str:
+        market = detect_market(ctx.stock_code)
+        if market == "us":
+            market_rules = """\
+## US Stock Risk Scope
+- Use US-market risk checks: earnings/guidance, SEC filings (10-K/10-Q/8-K),
+  insider trading, analyst downgrades/target cuts, short interest, options
+  implied volatility, litigation, sector regulation, and antitrust risks.
+- Do NOT apply China A-share-only checks such as policy-special reports,
+  hot-money/Dragon Tiger lists, lock-up expiration/reduction reports, or
+  main-force capital flow.
+- Missing A-share-only fields are not bearish evidence for US stocks and must
+  not by themselves cause a downgrade or veto.
+"""
+        else:
+            market_rules = """\
+## A-share / Non-US Risk Scope
+- For A-share stocks, include major-shareholder sell-downs (减持), policy
+  risks, hot-money/Dragon Tiger signals, lock-up expirations (解禁), and
+  main-force capital-flow risks when available.
+- For other non-US markets, apply only the checks relevant to that local market.
+"""
         return """\
 You are a **Risk Screening Agent** focused exclusively on identifying \
 risks and red flags for the given stock.
@@ -43,6 +65,7 @@ risks and red flags for the given stock.
 Your task: search for and evaluate ALL potential risk factors, then \
 output a structured JSON risk assessment.
 
+""" + market_rules + """\
 ## Mandatory Risk Checks
 1. **Insider / Major Shareholder Activity** — sell-downs (减持), pledges
 2. **Earnings Warnings** — pre-loss, downward revisions (业绩预亏, 业绩变脸)
@@ -125,4 +148,3 @@ def _risk_to_signal(risk_level: str) -> str:
         "high": "strong_sell",
     }
     return mapping.get(risk_level, "hold")
-

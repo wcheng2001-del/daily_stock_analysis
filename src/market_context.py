@@ -104,11 +104,15 @@ _MARKET_GUIDELINES = {
     "us": {
         "zh": (
             "- 本次分析对象为 **美股**（美国交易所上市股票）。\n"
-            "- 美股无涨跌停限制（但有熔断机制），支持 T+0 交易和盘前盘后交易，需关注美元汇率、美联储政策及 SEC 监管动态。"
+            "- 美股无涨跌停限制（但有熔断机制），支持 T+0 交易和盘前盘后交易，需关注美元汇率、美联储政策及 SEC 监管动态。\n"
+            "- 不要套用 A 股专属的政策专项、游资/龙虎榜、解禁/减持专项、主力资金流等框架；这些字段缺失时不得视为美股利空或降低敞口的直接理由。\n"
+            "- 美股风险框架应重点关注：财报与 guidance、SEC filings（10-K/10-Q/8-K）、insider trading、analyst rating/target price、short interest、期权隐含波动率、行业监管与反垄断风险。"
         ),
         "en": (
             "- This analysis covers a **US stock** (listed on NYSE/NASDAQ).\n"
-            "- US stocks have no daily price limits (but have circuit breakers), allow T+0 and pre/after-market trading. Consider USD FX, Fed policy, and SEC regulations."
+            "- US stocks have no daily price limits (but have circuit breakers), allow T+0 and pre/after-market trading. Consider USD FX, Fed policy, and SEC regulations.\n"
+            "- Do not apply China A-share-only frameworks such as policy-special reports, hot-money/Dragon Tiger lists, lock-up expiration/reduction reports, or main-force capital flow. Missing A-share-only fields must not be treated as bearish evidence for US stocks.\n"
+            "- For US stocks, focus on earnings/guidance, SEC filings (10-K/10-Q/8-K), insider trading, analyst rating/target price, short interest, options implied volatility, sector regulation, and antitrust risks."
         ),
     },
     "jp": {

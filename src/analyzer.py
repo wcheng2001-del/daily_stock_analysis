@@ -3688,6 +3688,7 @@ class GeminiAnalyzer:
             news_context: 预先搜索的新闻内容
         """
         code = context.get('code', 'Unknown')
+        market = detect_market(str(code))
         report_language = normalize_report_language(report_language)
         _, _, use_legacy_default_prompt = self._get_skill_prompt_sections()
         
@@ -3932,12 +3933,20 @@ class GeminiAnalyzer:
 """
         else:
             chip_unavailable_text = get_chip_unavailable_text(report_language)
-            chip_instruction = (
-                "Do not fabricate profit ratio, average cost, or concentration. Mention chip data "
-                "unavailability only once in the report; do not repeat per-field no-data text in `chip_structure`."
-                if report_language in ("en", "ko")
-                else "请勿编造获利比例、平均成本或集中度；报告中只说明一次筹码数据不可用，不要把“数据缺失，无法判断”逐字段重复写入 `chip_structure`。"
-            )
+            if market == "us":
+                chip_instruction = (
+                    "US stocks do not use China A-share chip-distribution metrics. Do not fabricate profit ratio, "
+                    "average cost, or concentration, and do not downgrade solely because chip data is unavailable."
+                    if report_language in ("en", "ko")
+                    else "美股不使用 A 股筹码分布口径；请勿编造获利比例、平均成本或集中度，也不得仅因筹码数据不可用而降级或提高风险溢价。"
+                )
+            else:
+                chip_instruction = (
+                    "Do not fabricate profit ratio, average cost, or concentration. Mention chip data "
+                    "unavailability only once in the report; do not repeat per-field no-data text in `chip_structure`."
+                    if report_language in ("en", "ko")
+                    else "请勿编造获利比例、平均成本或集中度；报告中只说明一次筹码数据不可用，不要把“数据缺失，无法判断”逐字段重复写入 `chip_structure`。"
+                )
             prompt += f"""
 ### 筹码分布数据（效率指标）
 > {chip_unavailable_text}
@@ -4049,12 +4058,20 @@ class GeminiAnalyzer:
 ## 📰 舆情情报
 """
         if news_context:
-            prompt += f"""
-以下是 **{stock_name}({code})** 近{news_window_days}日的新闻搜索结果，请重点提取：
-1. 🚨 **风险警报**：减持、处罚、利空
+            if market == "us":
+                intelligence_focus = """1. 🚨 **风险警报**：财报/guidance 下修、SEC 8-K/10-Q/10-K 重大披露、监管/反垄断、诉讼、analyst downgrade、short interest 异常、期权隐含波动率异常
+2. 🎯 **利好催化**：财报超预期、guidance 上调、重大合同/产品/并购、analyst upgrade、行业需求改善
+3. 📊 **业绩预期**：EPS/Revenue guidance、earnings date、consensus estimate、management commentary
+4. 🧭 **市场适配（强制）**：不要套用 A 股政策专项、游资/龙虎榜、解禁/减持专项、主力资金流；这些 A 股字段缺失不得作为美股利空或买入否决依据
+5. 🕒 **时间规则（强制）**："""
+            else:
+                intelligence_focus = """1. 🚨 **风险警报**：减持、处罚、利空
 2. 🎯 **利好催化**：业绩、合同、政策
 3. 📊 **业绩预期**：年报预告、业绩快报
-4. 🕒 **时间规则（强制）**：
+4. 🕒 **时间规则（强制）**："""
+            prompt += f"""
+以下是 **{stock_name}({code})** 近{news_window_days}日的新闻搜索结果，请重点提取：
+{intelligence_focus}
    - 输出到 `risk_alerts` / `positive_catalysts` / `latest_news` 的每一条都必须带具体日期（YYYY-MM-DD）
    - 超出近{news_window_days}日窗口的新闻一律忽略
    - 时间未知、无法确定发布日期的新闻一律忽略
@@ -4094,13 +4111,33 @@ class GeminiAnalyzer:
 > - `risk_alerts` 中不得出现基金管理人相关的公司经营风险
 
 """
+        if market == "us":
+            prompt += """
+> 🇺🇸 **美股分析约束**：
+> - 本标的是美股，请使用美股风险框架，不要套用 A 股政策专项、游资/龙虎榜、解禁/减持专项、主力资金流。
+> - 上述 A 股专项数据空白时，只能说明“不适用/未观测”，不得据此提高风险溢价、降低敞口或否决买入。
+> - 风险判断应以财报与 guidance、SEC filings、insider trading、analyst rating/target price、short interest、期权隐含波动率、行业监管/反垄断为核心。
+> - `risk_alerts` 只能列出有日期和来源的美股相关风险；不得写“政策/游资/解禁减持数据缺失，因此风险不可测”。
+
+"""
         prompt += f"""
 ### ⚠️ 重要：输出正确的股票名称格式
 正确的股票名称格式为“股票名称（股票代码）”，例如“贵州茅台（600519）”。
 如果上方显示的股票名称为"股票{code}"或不正确，请在分析开头**明确输出该股票的正确中文全称**。
 """
         if use_legacy_default_prompt:
-            prompt += f"""
+            if market == "us":
+                prompt += f"""
+
+### 重点关注（必须明确回答）：
+1. ❓ 当前趋势、价格位置与量能是否支持结论？
+2. ❓ 财报/guidance、SEC 披露、分析师预期或 short interest 是否出现重大风险或催化？
+3. ❓ 当前入场位置与风险回报是否合理？若偏离过大，请明确说明等待条件
+4. ❓ 消息面有无重大利空或与技术结论冲突的信息？
+5. ❓ 若结论成立，具体触发条件、止损位、观察点分别是什么？
+"""
+            else:
+                prompt += f"""
 
 ### 重点关注（必须明确回答）：
 1. ❓ 是否满足 MA5>MA10>MA20 多头排列？
@@ -4110,7 +4147,18 @@ class GeminiAnalyzer:
 5. ❓ 消息面有无重大利空？（减持、处罚、业绩变脸等）
 """
         else:
-            prompt += f"""
+            if market == "us":
+                prompt += f"""
+
+### 重点关注（必须明确回答）：
+1. ❓ 当前结构是否满足激活技能的关键触发条件？
+2. ❓ 当前入场位置与风险回报是否合理？若偏离过大，请明确说明等待条件
+3. ❓ 量能、波动、财报/guidance 与估值是否支持当前结论？
+4. ❓ 消息面有无重大利空或与技能结论冲突的信息？
+5. ❓ 若结论成立，具体触发条件、止损位、观察点分别是什么？
+"""
+            else:
+                prompt += f"""
 
 ### 重点关注（必须明确回答）：
 1. ❓ 当前结构是否满足激活技能的关键触发条件？

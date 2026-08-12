@@ -17,6 +17,7 @@ from typing import Optional
 from src.agent.agents.base_agent import BaseAgent
 from src.agent.protocols import AgentContext, AgentOpinion
 from src.agent.runner import try_parse_json
+from src.market_context import detect_market
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,28 @@ class IntelAgent(BaseAgent):
     ]
 
     def system_prompt(self, ctx: AgentContext) -> str:
+        market = detect_market(ctx.stock_code)
+        if market == "us":
+            market_rules = """\
+## US Stock Intelligence Scope
+- Focus on US-market sources and signals: earnings/guidance, SEC filings
+  (10-K/10-Q/8-K), insider trading, analyst rating/target changes, short
+  interest, options implied volatility, litigation, sector regulation, and
+  antitrust risks.
+- Skip A-share-only concepts: policy-special reports, hot-money/Dragon Tiger
+  lists, lock-up expiration/reduction reports, and main-force capital flow.
+- Missing A-share-only fields must be reported as not applicable, not as a
+  negative signal.
+"""
+        else:
+            market_rules = """\
+## Market Intelligence Scope
+- For A-share stocks, include policy/news events, major-shareholder sell-downs,
+  hot-money/Dragon Tiger activity, lock-up expirations, earnings warnings, and
+  main-force capital flow when available.
+- For HK/TW/JP/KR or other markets, apply only the local-market concepts that
+  are supported by data and do not invent unavailable A-share-only metrics.
+"""
         return """\
 You are an **Intelligence & Sentiment Agent** specialising in A-shares, \
 HK, and US equities.
@@ -39,6 +62,7 @@ HK, and US equities.
 Your task: gather the latest news, announcements, and risk signals for \
 the given stock, then produce a structured JSON opinion.
 
+""" + market_rules + """\
 ## Workflow
 1. Search latest stock news (earnings, announcements, insider activity)
 2. Run comprehensive intel search — this covers latest news, company \
@@ -79,17 +103,27 @@ Return **only** a JSON object:
 """
 
     def build_user_message(self, ctx: AgentContext) -> str:
+        market = detect_market(ctx.stock_code)
         parts = [f"Gather intelligence and assess sentiment for stock **{ctx.stock_code}**"]
         if ctx.stock_name:
             parts[0] += f" ({ctx.stock_name})"
-        parts.append(
-            "Steps:\n"
-            "1. Call search_comprehensive_intel to get latest news, company announcements "
-            "(公司公告), risk events, and earnings outlook.\n"
-            "2. Call get_capital_flow to obtain main-force (主力) capital flow data "
-            "(A-share only; skip for HK/US).\n"
-            "3. Output the JSON opinion including capital_flow_signal."
-        )
+        if market == "us":
+            parts.append(
+                "Steps:\n"
+                "1. Call search_comprehensive_intel to get latest US stock news, earnings/guidance, "
+                "SEC/analyst/regulatory risk events, and earnings outlook.\n"
+                "2. Do not call get_capital_flow and do not penalize missing A-share-only signals.\n"
+                "3. Output the JSON opinion with capital_flow_signal='not_available'."
+            )
+        else:
+            parts.append(
+                "Steps:\n"
+                "1. Call search_comprehensive_intel to get latest news, company announcements "
+                "(公司公告), risk events, and earnings outlook.\n"
+                "2. Call get_capital_flow to obtain main-force (主力) capital flow data "
+                "(A-share only; skip for HK/US).\n"
+                "3. Output the JSON opinion including capital_flow_signal."
+            )
         return "\n".join(parts)
 
     def post_process(self, ctx: AgentContext, raw_text: str) -> Optional[AgentOpinion]:
@@ -114,5 +148,3 @@ Return **only** a JSON object:
             reasoning=parsed.get("reasoning", ""),
             raw_data=parsed,
         )
-
-

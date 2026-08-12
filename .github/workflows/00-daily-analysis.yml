@@ -31,6 +31,16 @@ on:
         required: false
         default: false
         type: boolean
+      market_review_region:
+        description: '大盘复盘市场区域；留空则使用 Repository Variable MARKET_REVIEW_REGION'
+        required: false
+        default: ''
+        type: string
+      astock_signal_data_enabled:
+        description: '是否启用 A 股专项信号数据；美股 workflow 应传 false'
+        required: false
+        default: ''
+        type: string
 
   workflow_call:
     inputs:
@@ -49,6 +59,16 @@ on:
         required: false
         default: false
         type: boolean
+      market_review_region:
+        description: '大盘复盘市场区域；留空则使用 Repository Variable MARKET_REVIEW_REGION'
+        required: false
+        default: ''
+        type: string
+      astock_signal_data_enabled:
+        description: '是否启用 A 股专项信号数据；美股 workflow 应传 false'
+        required: false
+        default: ''
+        type: string
 # 并发控制：同一时间只运行一个分析任务
 concurrency:
   group: stock-analysis
@@ -410,7 +430,7 @@ jobs:
           # ==========================================
           # 避免直接写入 STOCK_LIST，保留同名 Environment variables 的 runner 环境值。
           STOCK_LIST_CONFIG: ${{ inputs.stock_list || vars.STOCK_LIST || secrets.STOCK_LIST }}
-          MARKET_REVIEW_REGION: ${{ vars.MARKET_REVIEW_REGION || secrets.MARKET_REVIEW_REGION || 'cn' }}
+          MARKET_REVIEW_REGION: ${{ inputs.market_review_region || vars.MARKET_REVIEW_REGION || secrets.MARKET_REVIEW_REGION || 'cn' }}
           MARKET_REVIEW_COLOR_SCHEME: ${{ vars.MARKET_REVIEW_COLOR_SCHEME || secrets.MARKET_REVIEW_COLOR_SCHEME || 'green_up' }}
           
           # ==========================================
@@ -429,7 +449,7 @@ jobs:
           # ==========================================
           LOG_LEVEL: INFO
           MAX_WORKERS: ${{ vars.MAX_WORKERS || secrets.MAX_WORKERS || '1' }}
-          ASTOCK_SIGNAL_DATA_ENABLED: ${{ vars.ASTOCK_SIGNAL_DATA_ENABLED || secrets.ASTOCK_SIGNAL_DATA_ENABLED || 'true' }}
+          ASTOCK_SIGNAL_DATA_ENABLED: ${{ inputs.astock_signal_data_enabled || vars.ASTOCK_SIGNAL_DATA_ENABLED || secrets.ASTOCK_SIGNAL_DATA_ENABLED || 'true' }}
           EM_MIN_INTERVAL: ${{ vars.EM_MIN_INTERVAL || secrets.EM_MIN_INTERVAL || '1.0' }}
           # 筹码分布：默认 false（云端接口不稳定）；需启用时在 Settings → Variables 添加 ENABLE_CHIP_DISTRIBUTION=true
           ENABLE_CHIP_DISTRIBUTION: ${{ vars.ENABLE_CHIP_DISTRIBUTION || secrets.ENABLE_CHIP_DISTRIBUTION || 'false' }}
@@ -574,4 +594,3 @@ jobs:
             echo "📜 最近日志（最后 30 行）:"
             tail -30 logs/stock_analysis_*.log 2>/dev/null || echo "无日志"
           fi
-
